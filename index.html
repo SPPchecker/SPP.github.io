@@ -422,7 +422,7 @@
             document.querySelector('h1').textContent = 'SPP色覚検査システム';
             document.getElementById('questionNumber').style.display = 'block';
             document.getElementById('questionNumber').textContent = '問題 1/19';
-            document.querySelector('.image-container').style.display = 'block';
+            document.querySelector('.image-container').style.display = 'flex';
             document.getElementById('imageInfo').style.display = 'block';
             document.querySelector('.progress-container').style.display = 'block';
             document.getElementById('progressText').style.display = 'block';
@@ -450,6 +450,9 @@
             
             // ステータスを初期状態に
             updateStatus('ready', '検査準備完了 - 開始ボタンを押してください');
+            
+            // コンテナのテキスト配置を中央に戻す
+            document.querySelector('.container').style.textAlign = 'center';
             
             // 検査状態をリセット
             isTestActive = false;
