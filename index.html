@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPP色覚検査システム</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://unpkg.com/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -226,6 +225,17 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
 
+        .btn-email {
+            background: linear-gradient(145deg, #9C27B0, #7B1FA2);
+            color: white;
+        }
+
+        .btn-email:hover {
+            background: linear-gradient(145deg, #7B1FA2, #6A1B9A);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
         .results {
             margin-top: 30px;
             text-align: left;
@@ -344,9 +354,18 @@
             margin: 5px 0;
         }
 
-        @font-face {
-            font-family: 'NotoSansJP';
-            src: url('https://fonts.gstatic.com/ea/notosansjapanese/v6/NotoSansJP-Regular.woff2') format('woff2');
+        .email-notice {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border: 1px solid #a5d6a7;
+            text-align: center;
+        }
+
+        .email-notice p {
+            margin: 5px 0;
+            color: #2e7d32;
         }
     </style>
 </head>
@@ -416,7 +435,8 @@
 
         <div class="controls">
             <button class="btn btn-primary" onclick="handleMainButton()" id="mainBtn" disabled>次へ</button>
-            <button class="btn btn-secondary" onclick="generatePDF()" id="pdfBtn" style="display: none;">PDF出力</button>
+            <button class="btn btn-secondary" onclick="downloadResults()" id="downloadBtn" style="display: none;">結果をダウンロード</button>
+            <button class="btn btn-email" onclick="sendEmail()" id="emailBtn" style="display: none;">メールで送信</button>
         </div>
 
         <div class="results" id="results" style="display: none;">
@@ -424,28 +444,14 @@
             <h3>検査結果</h3>
             <div id="resultsList"></div>
             <div id="diagnosisResult"></div>
+            <div class="email-notice" id="emailNotice" style="display: none;">
+                <p>📧 メールアプリが開きます</p>
+                <p>送信ボタンを押して結果を送信してください</p>
+            </div>
         </div>
     </div>
 
     <script>
-        // 日本語フォントの定義（簡易版）
-        const japaneseFont = {
-            'あ': 'a', 'い': 'i', 'う': 'u', 'え': 'e', 'お': 'o',
-            'か': 'ka', 'き': 'ki', 'く': 'ku', 'け': 'ke', 'こ': 'ko',
-            'が': 'ga', 'ぎ': 'gi', 'ぐ': 'gu', 'げ': 'ge', 'ご': 'go',
-            'さ': 'sa', 'し': 'shi', 'す': 'su', 'せ': 'se', 'そ': 'so',
-            'た': 'ta', 'ち': 'chi', 'つ': 'tsu', 'て': 'te', 'と': 'to',
-            'な': 'na', 'に': 'ni', 'ぬ': 'nu', 'ね': 'ne', 'の': 'no',
-            'は': 'ha', 'ひ': 'hi', 'ふ': 'fu', 'へ': 'he', 'ほ': 'ho',
-            'ま': 'ma', 'み': 'mi', 'む': 'mu', 'め': 'me', 'も': 'mo',
-            'や': 'ya', 'ゆ': 'yu', 'よ': 'yo',
-            'ら': 'ra', 'り': 'ri', 'る': 'ru', 'れ': 're', 'ろ': 'ro',
-            'わ': 'wa', 'を': 'wo', 'ん': 'n',
-            '、': ',', '。': '.', '！': '!', '？': '?',
-            '「': '[', '」': ']', '（': '(', '）': ')',
-            '：': ':', '；': ';', '・': '/', '〜': '~'
-        };
-
         const duration = 20000; // 20秒
         const canvas = document.getElementById('testCanvas');
         const ctx = canvas.getContext('2d');
@@ -476,6 +482,11 @@
             startImg: null,
             endImg: null
         }));
+
+        // デバイス判定
+        function isIOS() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        }
 
         // 入力フィールドの監視
         document.getElementById('userName').addEventListener('input', checkFormCompletion);
@@ -613,7 +624,8 @@
             
             updateStatus('testing', '検査実行中...');
             document.getElementById('mainBtn').style.display = 'none';
-            document.getElementById('pdfBtn').style.display = 'none';
+            document.getElementById('downloadBtn').style.display = 'none';
+            document.getElementById('emailBtn').style.display = 'none';
             document.getElementById('results').style.display = 'none';
             
             startQuestion();
@@ -634,6 +646,7 @@
             document.querySelector('.progress-container').style.display = 'block';
             document.getElementById('progressText').style.display = 'block';
             document.getElementById('questionPrompt').style.display = 'none';
+            document.getElementById('emailNotice').style.display = 'none';
             
             // プレースホルダーを表示し、キャンバスを非表示に
             document.getElementById('placeholder').style.display = 'block';
@@ -649,7 +662,8 @@
             mainBtn.textContent = '次へ';
             mainBtn.disabled = true;
             mainBtn.style.display = 'inline-block';
-            document.getElementById('pdfBtn').style.display = 'none';
+            document.getElementById('downloadBtn').style.display = 'none';
+            document.getElementById('emailBtn').style.display = 'none';
             document.getElementById('results').style.display = 'none';
             
             // フォームをクリア
@@ -794,7 +808,14 @@
             const diagnosis = calculateDiagnosis(testResults);
             document.getElementById('diagnosisResult').textContent = `診断結果: ${diagnosis}`;
             
-            document.getElementById('pdfBtn').style.display = 'inline-block';
+            // ボタンを表示
+            if (isIOS()) {
+                document.getElementById('emailBtn').style.display = 'inline-block';
+                document.getElementById('emailNotice').style.display = 'block';
+            } else {
+                document.getElementById('downloadBtn').style.display = 'inline-block';
+            }
+            
             document.getElementById('mainBtn').style.display = 'inline-block';
             document.getElementById('mainBtn').textContent = '再検査';
         }
@@ -912,128 +933,72 @@
             }
         }
 
-        function generatePDF() {
-            if (typeof jsPDF === 'undefined') { 
-                alert('PDF生成ライブラリの読み込みに失敗しました。'); 
-                return; 
-            }
+        function generateResultText() {
+            const diagnosis = calculateDiagnosis(testResults);
             
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
+            let content = '========================================\n';
+            content += 'SPP色覚検査結果\n';
+            content += '========================================\n\n';
             
-            // 日本語の簡易変換関数
-            function convertToRomaji(text) {
-                let result = text;
-                for (const [jp, romaji] of Object.entries(japaneseFont)) {
-                    result = result.replace(new RegExp(jp, 'g'), romaji);
-                }
-                return result;
-            }
+            content += '【検査者情報】\n';
+            content += `お名前: ${userName}\n`;
+            content += `年齢: ${userAge}歳\n`;
+            content += `検査日時: ${testStartTime.toLocaleString('ja-JP')}\n\n`;
+            
+            content += '【診断結果】\n';
+            content += `${diagnosis}\n\n`;
+            
+            content += '【回答詳細】\n';
+            content += '----------------------------------------\n';
+            
+            testResults.forEach(result => {
+                const answerText = Array.isArray(result.answer) ? result.answer.join(', ') : result.answer;
+                content += `問題 ${String(result.question).padStart(2, ' ')}: `;
+                content += `回答 = ${answerText.toString().padEnd(12, ' ')} `;
+                content += `応答時間 = ${(result.responseTime / 1000).toFixed(1)}秒\n`;
+            });
+            
+            content += '----------------------------------------\n\n';
+            content += '※この結果は参考情報です。\n';
+            content += '※正確な診断は眼科医にご相談ください。\n';
+            
+            return content;
+        }
 
-            try {
-                // ヘッダー
-                doc.setFontSize(20);
-                doc.setTextColor(0, 0, 0);
-                doc.text('SPP Color Vision Test Results', 105, 20, { align: 'center' });
-                
-                // 線
-                doc.setDrawColor(200, 200, 200);
-                doc.line(20, 25, 190, 25);
-                
-                // 検査者情報
-                doc.setFontSize(14);
-                doc.setTextColor(50, 50, 50);
-                doc.text('Test Subject Information', 20, 35);
-                
-                doc.setFontSize(11);
-                doc.setTextColor(0, 0, 0);
-                doc.text(`Name: ${userName}`, 25, 45);
-                doc.text(`Age: ${userAge} years old`, 25, 52);
-                doc.text(`Test Date: ${testStartTime.toLocaleString('ja-JP')}`, 25, 59);
-                
-                // 診断結果
-                doc.setDrawColor(200, 200, 200);
-                doc.line(20, 65, 190, 65);
-                
-                const diagnosis = calculateDiagnosis(testResults);
-                doc.setFontSize(14);
-                doc.setTextColor(50, 50, 50);
-                doc.text('Diagnosis Result', 20, 75);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 100, 200);
-                doc.text(`${convertToRomaji(diagnosis)}`, 25, 85);
-                
-                // 回答詳細のテーブル
-                doc.setDrawColor(200, 200, 200);
-                doc.line(20, 92, 190, 92);
-                
-                doc.setFontSize(14);
-                doc.setTextColor(50, 50, 50);
-                doc.text('Test Results Detail', 20, 102);
-                
-                // テーブルヘッダー
-                const tableData = [];
-                const headers = [['Question', 'Answer', 'Response Time']];
-                
-                testResults.forEach(result => {
-                    const answerText = Array.isArray(result.answer) ? result.answer.join(', ') : result.answer;
-                    const answerDisplay = answerText === 'わからない' ? 'Unknown' : answerText.toString();
-                    tableData.push([
-                        `Q${result.question}`,
-                        answerDisplay,
-                        `${(result.responseTime / 1000).toFixed(1)}s`
-                    ]);
-                });
-                
-                // テーブルを描画
-                doc.autoTable({
-                    head: headers,
-                    body: tableData,
-                    startY: 110,
-                    styles: {
-                        fontSize: 10,
-                        cellPadding: 3
-                    },
-                    headStyles: {
-                        fillColor: [100, 126, 234],
-                        textColor: 255
-                    },
-                    alternateRowStyles: {
-                        fillColor: [245, 245, 245]
-                    }
-                });
-                
-                // フッター
-                const finalY = doc.lastAutoTable.finalY || 200;
-                doc.setFontSize(10);
-                doc.setTextColor(100, 100, 100);
-                doc.text('* This result is for reference only.', 20, finalY + 15);
-                doc.text('* Please consult an ophthalmologist for accurate diagnosis.', 20, finalY + 22);
-                
-                // PDFを保存
-                const fileName = `SPP_Test_${userName}_${testStartTime.toISOString().slice(0,10)}.pdf`;
-                
-                // iPadの場合は新しいウィンドウで開く
-                if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
-                    const pdfBlob = doc.output('blob');
-                    const pdfUrl = URL.createObjectURL(pdfBlob);
-                    window.open(pdfUrl, '_blank');
-                    
-                    setTimeout(() => {
-                        URL.revokeObjectURL(pdfUrl);
-                    }, 100);
-                    
-                    alert('PDFが新しいタブで開きました。\n共有ボタンから保存またはメールで送信できます。');
-                } else {
-                    // PCの場合は通常のダウンロード
-                    doc.save(fileName);
-                }
-                
-            } catch (error) {
-                console.error('PDF生成エラー:', error);
-                alert('PDF生成中にエラーが発生しました。');
-            }
+        function sendEmail() {
+            const resultText = generateResultText();
+            const subject = `SPP色覚検査結果_${userName}_${testStartTime.toISOString().slice(0,10)}`;
+            const recipient = 'atsuhiro.ogai@gmail.com';
+            
+            // メール本文をURLエンコード
+            const body = encodeURIComponent(resultText);
+            const subjectEncoded = encodeURIComponent(subject);
+            
+            // mailtoリンクを作成
+            const mailtoLink = `mailto:${recipient}?subject=${subjectEncoded}&body=${body}`;
+            
+            // メールアプリを開く
+            window.location.href = mailtoLink;
+            
+            // 少し遅延してからアラートを表示
+            setTimeout(() => {
+                alert('メールアプリが開きました。\n送信ボタンを押して結果を送信してください。');
+            }, 1000);
+        }
+
+        function downloadResults() {
+            const resultText = generateResultText();
+            
+            // テキストファイルとしてダウンロード
+            const blob = new Blob([resultText], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SPP検査結果_${userName}_${testStartTime.toISOString().slice(0,10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         document.addEventListener('keydown', function(event) {
