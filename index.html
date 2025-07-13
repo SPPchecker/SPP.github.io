@@ -50,8 +50,9 @@
             color: #1565C0;
             font-weight: bold;
             margin-bottom: 15px;
-            height: 25px;
+            min-height: 30px;
             font-size: 1.1em;
+            white-space: nowrap;
         }
 
         .image-container {
@@ -103,13 +104,15 @@
 
         .keypad-section {
             margin: 30px auto;
-            max-width: 300px;
+            max-width: 400px;
         }
 
         .keypad {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 15px;
+            max-width: 300px;
+            margin: 0 auto;
         }
 
         .key {
