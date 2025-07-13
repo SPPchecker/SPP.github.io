@@ -286,7 +286,7 @@
             
             <div class="image-container">
                 <div class="placeholder" id="placeholder">検査開始前</div>
-                <canvas id="testCanvas" width="400" height="400" style="display: none;"></canvas>
+                <canvas id="testCanvas" width="600" height="600" style="display: none;"></canvas>
             </div>
 
             <div class="image-info" id="imageInfo">
@@ -396,14 +396,19 @@
         }
 
         function startTest() {
-            if (imagesLoaded < totalImages) return;
+           if (imagesLoaded < totalImages) return;
+            
+            // 再検査時の初期化処理
+            if (document.getElementById('startBtn').textContent === '再検査') {
+                resetTestUI();
+                return;
+            }
+            
+            // 通常の検査開始処理
             isTestActive = true;
             currentQuestion = 0;
             testResults = [];
             tempAnswer = null;
-            
-            document.getElementById('startBtn').textContent = '検査開始';
-            document.getElementById('startBtn').disabled = false;
             
             updateStatus('testing', '検査実行中...');
             document.getElementById('startBtn').style.display = 'none';
@@ -411,6 +416,47 @@
             document.getElementById('results').style.display = 'none';
             
             startQuestion();
+        }
+         function resetTestUI() {
+            // 画面要素を初期状態に復元
+            document.querySelector('h1').textContent = 'SPP色覚検査システム';
+            document.getElementById('questionNumber').style.display = 'block';
+            document.getElementById('questionNumber').textContent = '問題 1/19';
+            document.querySelector('.image-container').style.display = 'block';
+            document.getElementById('imageInfo').style.display = 'block';
+            document.querySelector('.progress-container').style.display = 'block';
+            document.getElementById('progressText').style.display = 'block';
+            document.querySelector('.keypad').style.display = 'grid';
+            document.getElementById('questionPrompt').style.display = 'none';
+            
+            // プレースホルダーを表示し、キャンバスを非表示に
+            document.getElementById('placeholder').style.display = 'block';
+            document.getElementById('placeholder').textContent = '検査開始前';
+            canvas.style.display = 'none';
+            
+            // プログレスバーをリセット
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressText').textContent = '0.0 / 20.0 秒';
+            
+            // 画像情報をリセット
+            document.getElementById('startImageName').textContent = '-';
+            document.getElementById('endImageName').textContent = '-';
+            
+            // ボタンを初期状態に
+            document.getElementById('startBtn').textContent = '検査開始';
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('pdfBtn').style.display = 'none';
+            document.getElementById('results').style.display = 'none';
+            
+            // ステータスを初期状態に
+            updateStatus('ready', '検査準備完了 - 開始ボタンを押してください');
+            
+            // 検査状態をリセット
+            isTestActive = false;
+            running = false;
+            currentQuestion = 0;
+            testResults = [];
+            tempAnswer = null;
         }
 
         function startQuestion() {
@@ -516,6 +562,26 @@
         function completeTest() {
             isTestActive = false;
             running = false;
+            
+            // ヘッダーを「検査終了」に変更
+            document.querySelector('h1').textContent = 'SPP検査';
+            
+            // 問題番号を非表示
+            document.getElementById('questionNumber').style.display = 'none';
+            
+            // 画像エリアを非表示
+            document.querySelector('.image-container').style.display = 'none';
+            
+            // 画像情報を非表示
+            document.getElementById('imageInfo').style.display = 'none';
+            
+            // プログレスバーを非表示
+            document.querySelector('.progress-container').style.display = 'none';
+            document.getElementById('progressText').style.display = 'none';
+            
+            // キーパッドを非表示
+            document.querySelector('.keypad').style.display = 'none';
+            
             updateStatus('complete', '検査完了');
             displayResults();
             const diagnosis = calculateDiagnosis(testResults);
