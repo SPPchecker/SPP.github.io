@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPP色覚検査システム</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -34,8 +33,42 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
         }
 
+        .input-form {
+            margin: 30px auto;
+            max-width: 400px;
+            text-align: left;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+            font-size: 1.1em;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            font-size: 1em;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
         .test-area {
             margin: 30px 0;
+            display: none;
         }
 
         .question-number {
@@ -105,6 +138,7 @@
         .keypad-section {
             margin: 30px auto;
             max-width: 400px;
+            display: none;
         }
 
         .keypad {
@@ -173,7 +207,7 @@
             color: white;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             background: linear-gradient(145deg, #45a049, #3d8b40);
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
@@ -267,6 +301,46 @@
             margin: 20px 0;
             border: 1px solid #ffeaa7;
         }
+
+        .user-info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f0f8ff;
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        .user-info h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .user-info p {
+            margin: 5px 0;
+            color: #666;
+        }
+
+        .waiting-screen {
+            display: none;
+            margin: 30px 0;
+        }
+
+        .waiting-info {
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .waiting-info h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .waiting-info p {
+            color: #666;
+            margin: 5px 0;
+        }
     </style>
 </head>
 <body>
@@ -278,10 +352,32 @@
         </div>
         
         <div class="status ready" id="status">
-            検査準備完了 - 開始ボタンを押してください
+            検査者情報を入力してください
         </div>
 
-        <div class="test-area">
+        <div class="input-form" id="inputForm">
+            <div class="form-group">
+                <label for="userName">お名前</label>
+                <input type="text" id="userName" placeholder="山田 太郎" required>
+            </div>
+            <div class="form-group">
+                <label for="userAge">年齢</label>
+                <input type="number" id="userAge" placeholder="25" min="1" max="120" required>
+            </div>
+        </div>
+
+        <div class="waiting-screen" id="waitingScreen">
+            <div class="waiting-info">
+                <h3>検査者情報</h3>
+                <p><strong>お名前:</strong> <span id="displayName"></span></p>
+                <p><strong>年齢:</strong> <span id="displayAge"></span>歳</p>
+            </div>
+            <div class="image-container">
+                <div class="placeholder">検査開始ボタンを押してください</div>
+            </div>
+        </div>
+
+        <div class="test-area" id="testArea">
             <div class="question-number" id="questionNumber">問題 1/19</div>
             
             <div class="image-container">
@@ -312,11 +408,12 @@
         </div>
 
         <div class="controls">
-            <button class="btn btn-primary" onclick="startTest()" id="startBtn">検査開始</button>
-            <button class="btn btn-secondary" onclick="generatePDF()" id="pdfBtn" style="display: none;">PDF出力</button>
+            <button class="btn btn-primary" onclick="handleMainButton()" id="mainBtn" disabled>次へ</button>
+            <button class="btn btn-secondary" onclick="downloadTextFile()" id="downloadBtn" style="display: none;">結果をダウンロード</button>
         </div>
 
         <div class="results" id="results" style="display: none;">
+            <div class="user-info" id="userInfo"></div>
             <h3>検査結果</h3>
             <div id="resultsList"></div>
             <div id="diagnosisResult"></div>
@@ -337,6 +434,9 @@
         let questionStartTime;
         let imagesLoaded = 0;
         let totalImages = 0;
+        let userName = '';
+        let userAge = '';
+        let currentScreen = 'form'; // 'form', 'waiting', 'test', 'results'
         
         // 複数回答問題のための変数
         let tempAnswer = null;
@@ -351,6 +451,24 @@
             startImg: null,
             endImg: null
         }));
+
+        // 入力フィールドの監視
+        document.getElementById('userName').addEventListener('input', checkFormCompletion);
+        document.getElementById('userAge').addEventListener('input', checkFormCompletion);
+
+        function checkFormCompletion() {
+            const nameInput = document.getElementById('userName').value.trim();
+            const ageInput = document.getElementById('userAge').value.trim();
+            const mainBtn = document.getElementById('mainBtn');
+            
+            if (nameInput && ageInput && ageInput >= 1 && ageInput <= 120) {
+                mainBtn.disabled = false;
+                mainBtn.textContent = '次へ';
+            } else {
+                mainBtn.disabled = true;
+                mainBtn.textContent = '次へ';
+            }
+        }
 
         function preloadImages() {
             totalImages = testData.length * 2;
@@ -374,14 +492,14 @@
                 imagesLoaded++;
                 updateStatus('loading', `画像を読み込み中... (${imagesLoaded}/${totalImages})`);
                 if (imagesLoaded === totalImages) {
-                    updateStatus('ready', '検査準備完了 - 開始ボタンを押してください');
+                    updateStatus('ready', '検査者情報を入力してください');
                 }
             }
 
             function imageError(filename) {
                 hasError = true;
                 updateStatus('error', `エラー: 画像 "${filename}" が見つかりません。`);
-                document.getElementById('startBtn').disabled = true;
+                document.getElementById('mainBtn').disabled = true;
             }
         }
 
@@ -391,38 +509,105 @@
             statusDiv.textContent = message;
         }
 
-        function startTest() {
-           if (imagesLoaded < totalImages) return;
+        function handleMainButton() {
+            const mainBtn = document.getElementById('mainBtn');
             
-            // 再検査時の初期化処理
-            if (document.getElementById('startBtn').textContent === '再検査') {
-                resetTestUI();
-                return;
+            if (currentScreen === 'form') {
+                // フォームから待機画面へ
+                if (!validateForm()) return;
+                showWaitingScreen();
+            } else if (currentScreen === 'waiting') {
+                // 待機画面から検査開始
+                startTest();
+            } else if (currentScreen === 'results') {
+                // 結果画面から最初へ戻る
+                resetToStart();
             }
+        }
+
+        function validateForm() {
+            const nameInput = document.getElementById('userName');
+            const ageInput = document.getElementById('userAge');
+            
+            userName = nameInput.value.trim();
+            userAge = ageInput.value.trim();
+            
+            if (!userName) {
+                alert('お名前を入力してください。');
+                nameInput.focus();
+                return false;
+            }
+            
+            if (!userAge || userAge < 1 || userAge > 120) {
+                alert('正しい年齢を入力してください。');
+                ageInput.focus();
+                return false;
+            }
+            
+            return true;
+        }
+
+        function showWaitingScreen() {
+            currentScreen = 'waiting';
+            
+            // フォームを非表示
+            document.getElementById('inputForm').style.display = 'none';
+            
+            // 待機画面を表示
+            document.getElementById('waitingScreen').style.display = 'block';
+            document.getElementById('displayName').textContent = userName;
+            document.getElementById('displayAge').textContent = userAge;
+            
+            // ボタンを「検査開始」に変更
+            const mainBtn = document.getElementById('mainBtn');
+            mainBtn.textContent = '検査開始';
+            mainBtn.disabled = false;
+            
+            // ステータスを更新
+            updateStatus('ready', '検査準備完了 - 検査開始ボタンを押してください');
+        }
+
+        function startTest() {
+            if (imagesLoaded < totalImages) return;
+            
+            currentScreen = 'test';
+            
+            // 待機画面を非表示
+            document.getElementById('waitingScreen').style.display = 'none';
+            
+            // 検査エリアを表示
+            document.getElementById('testArea').style.display = 'block';
+            document.querySelector('.keypad-section').style.display = 'block';
             
             // 通常の検査開始処理
             isTestActive = true;
             currentQuestion = 0;
             testResults = [];
             tempAnswer = null;
+            testStartTime = new Date();
             
             updateStatus('testing', '検査実行中...');
-            document.getElementById('startBtn').style.display = 'none';
-            document.getElementById('pdfBtn').style.display = 'none';
+            document.getElementById('mainBtn').style.display = 'none';
+            document.getElementById('downloadBtn').style.display = 'none';
             document.getElementById('results').style.display = 'none';
             
             startQuestion();
         }
 
-        function resetTestUI() {
+        function resetToStart() {
+            currentScreen = 'form';
+            
             // 画面要素を初期状態に復元
             document.querySelector('h1').textContent = 'SPP色覚検査システム';
+            document.getElementById('inputForm').style.display = 'block';
+            document.getElementById('waitingScreen').style.display = 'none';
+            document.getElementById('testArea').style.display = 'none';
+            document.querySelector('.keypad-section').style.display = 'none';
             document.getElementById('questionNumber').style.display = 'block';
             document.getElementById('questionNumber').textContent = '問題 1/19';
             document.querySelector('.image-container').style.display = 'flex';
             document.querySelector('.progress-container').style.display = 'block';
             document.getElementById('progressText').style.display = 'block';
-            document.querySelector('.keypad-section').style.display = 'block';
             document.getElementById('questionPrompt').style.display = 'none';
             
             // プレースホルダーを表示し、キャンバスを非表示に
@@ -435,13 +620,19 @@
             document.getElementById('progressText').textContent = '0.0 / 20.0 秒';
             
             // ボタンを初期状態に
-            document.getElementById('startBtn').textContent = '検査開始';
-            document.getElementById('startBtn').disabled = false;
-            document.getElementById('pdfBtn').style.display = 'none';
+            const mainBtn = document.getElementById('mainBtn');
+            mainBtn.textContent = '次へ';
+            mainBtn.disabled = true;
+            mainBtn.style.display = 'inline-block';
+            document.getElementById('downloadBtn').style.display = 'none';
             document.getElementById('results').style.display = 'none';
             
+            // フォームをクリア
+            document.getElementById('userName').value = '';
+            document.getElementById('userAge').value = '';
+            
             // ステータスを初期状態に
-            updateStatus('ready', '検査準備完了 - 開始ボタンを押してください');
+            updateStatus('ready', '検査者情報を入力してください');
             
             // コンテナのテキスト配置を中央に戻す
             document.querySelector('.container').style.textAlign = 'center';
@@ -555,6 +746,7 @@
         function completeTest() {
             isTestActive = false;
             running = false;
+            currentScreen = 'results';
             
             // ヘッダーを「検査終了」に変更
             document.querySelector('h1').textContent = 'SPP検査';
@@ -577,14 +769,24 @@
             const diagnosis = calculateDiagnosis(testResults);
             document.getElementById('diagnosisResult').textContent = `診断結果: ${diagnosis}`;
             
-            document.getElementById('pdfBtn').style.display = 'inline-block';
-            document.getElementById('startBtn').style.display = 'inline-block';
-            document.getElementById('startBtn').textContent = '再検査';
+            document.getElementById('downloadBtn').style.display = 'inline-block';
+            document.getElementById('mainBtn').style.display = 'inline-block';
+            document.getElementById('mainBtn').textContent = '再検査';
         }
         
         function displayResults() {
             const resultsDiv = document.getElementById('results');
             const resultsList = document.getElementById('resultsList');
+            const userInfo = document.getElementById('userInfo');
+            
+            // ユーザー情報を表示
+            userInfo.innerHTML = `
+                <h4>検査者情報</h4>
+                <p><strong>お名前:</strong> ${userName}</p>
+                <p><strong>年齢:</strong> ${userAge}歳</p>
+                <p><strong>検査日時:</strong> ${testStartTime.toLocaleString('ja-JP')}</p>
+            `;
+            
             resultsList.innerHTML = '';
             
             testResults.forEach(result => {
@@ -685,36 +887,45 @@
             }
         }
 
-        function generatePDF() {
-            if (typeof jsPDF === 'undefined') { alert('PDF生成ライブラリの読み込みに失敗しました。'); return; }
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            // PDF生成は日本語フォントの組み込みが必要なため、ここでは単純なテキスト出力に留めます
-            doc.setFont('helvetica', 'normal');
-
-            doc.setFontSize(20);
-            doc.text('SPP Color Vision Test Results', 20, 30);
-
-            doc.setFontSize(12);
-            doc.text(`Date: ${new Date().toLocaleString('ja-JP')}`, 20, 50);
-            
+        function downloadTextFile() {
             const diagnosis = calculateDiagnosis(testResults);
-            doc.text(`Diagnosis: ${diagnosis}`, 20, 60);
-
-            doc.setFontSize(14);
-            doc.text('Answers:', 20, 80);
-
-            doc.setFontSize(10);
-            let yPos = 90;
+            
+            let content = '========================================\n';
+            content += 'SPP色覚検査結果\n';
+            content += '========================================\n\n';
+            
+            content += '【検査者情報】\n';
+            content += `お名前: ${userName}\n`;
+            content += `年齢: ${userAge}歳\n`;
+            content += `検査日時: ${testStartTime.toLocaleString('ja-JP')}\n\n`;
+            
+            content += '【診断結果】\n';
+            content += `${diagnosis}\n\n`;
+            
+            content += '【回答詳細】\n';
+            content += '----------------------------------------\n';
+            
             testResults.forEach(result => {
-                if (yPos > 270) { doc.addPage(); yPos = 20; }
                 const answerText = Array.isArray(result.answer) ? result.answer.join(', ') : result.answer;
-                doc.text(`Q${result.question}: ${answerText} (${(result.responseTime / 1000).toFixed(1)}s)`, 20, yPos);
-                yPos += 10;
+                content += `問題 ${String(result.question).padStart(2, ' ')}: `;
+                content += `回答 = ${answerText.toString().padEnd(12, ' ')} `;
+                content += `応答時間 = ${(result.responseTime / 1000).toFixed(1)}秒\n`;
             });
-
-            doc.save('ColorVision_Test_Results.pdf');
+            
+            content += '----------------------------------------\n\n';
+            content += '※この結果は参考情報です。\n';
+            content += '※正確な診断は眼科医にご相談ください。\n';
+            
+            // テキストファイルとしてダウンロード
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SPP検査結果_${userName}_${testStartTime.toISOString().slice(0,10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         document.addEventListener('keydown', function(event) {
